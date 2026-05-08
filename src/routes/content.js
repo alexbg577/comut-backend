@@ -25,6 +25,35 @@ const uploadToCloudinary = (buffer, options) => {
   });
 };
 
+// Générer une signature Cloudinary pour upload direct depuis le frontend
+router.get('/upload-signature', auth, async (req, res) => {
+  try {
+    const timestamp = Math.round(Date.now() / 1000);
+    const folder = `comut/${req.user.groupId || 'temp'}`;
+    const params = { folder, timestamp };
+    const signature = cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET);
+    res.json({ signature, timestamp, folder, cloudName: process.env.CLOUDINARY_CLOUD_NAME, apiKey: process.env.CLOUDINARY_API_KEY });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Créer un content après upload direct Cloudinary
+router.post('/create', auth, async (req, res) => {
+  try {
+    if (!req.user.groupId) return res.status(400).json({ error: 'Groupe requis' });
+    const { url, publicId, type, title, thumbnail, duration, size } = req.body;
+    if (!url || !type) return res.status(400).json({ error: 'URL et type requis' });
+    const content = await Content.create({
+      groupId: req.user.groupId, uploaderId: req.user._id,
+      type, title, url, publicId, thumbnail, duration, size
+    });
+    res.status(201).json({ content });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const getTypeFromMime = (mimetype) => {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'photo';

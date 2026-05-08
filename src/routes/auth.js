@@ -22,10 +22,11 @@ router.post('/register', async (req, res) => {
     const isOwnerEmail = email.toLowerCase() === process.env.COMUT_OWNER_EMAIL?.toLowerCase();
     const user = await User.create({
       email, pseudo, password, verificationToken,
-      role: isOwnerEmail ? 'owner' : 'user'
+      role: isOwnerEmail ? 'owner' : 'user',
+      emailVerified: isOwnerEmail
     });
 
-    await sendVerificationEmail(email, verificationToken);
+    if (!isOwnerEmail) await sendVerificationEmail(email, verificationToken);
     res.status(201).json({ message: 'Compte créé. Vérifiez votre email.' });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -112,6 +113,19 @@ router.post('/change-password', auth, async (req, res) => {
     user.password = newPassword;
     await user.save();
     res.json({ message: 'Mot de passe modifié' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Upload avatar
+router.post('/avatar', auth, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL manquante' });
+    req.user.avatar = url;
+    await req.user.save();
+    res.json({ avatar: url });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
